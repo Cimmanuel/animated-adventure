@@ -1,0 +1,45 @@
+version: "3.8"
+
+services:
+    api:
+        container_name: api
+        restart: always
+        build: ./woice
+        image: woice:latest
+        networks:
+            - API_NETWORK
+        depends_on:
+            - redis
+            - database
+        volumes:
+            - ./woice:/woice/
+        ports:
+            - "8000:8000"
+        env_file:
+            - ./.env
+        command: sh ./entrypoint.sh
+
+    database:
+        container_name: postgres
+        restart: always
+        image: postgres:latest
+        networks:
+            - API_NETWORK
+        volumes:
+            - pgdata:/var/lib/postgresql/data/
+        environment:
+            - POSTGRES_HOST_AUTH_METHOD=trust
+
+    redis:
+        container_name: redis
+        image: redis:latest
+        networks:
+            - API_NETWORK
+
+volumes:
+    pgdata:
+
+networks:
+    API_NETWORK:
+        name: API_NETWORK
+        driver: bridge
