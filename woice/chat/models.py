@@ -16,7 +16,7 @@ class ChatRoom(models.Model):
     name = models.CharField(max_length=100)
     creator = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name="chatroom",
     )
     type = models.CharField(
@@ -36,3 +36,23 @@ class ChatRoom(models.Model):
 
     def __str__(self):
         return f"{self.creator.username}'s {self.name} room"
+
+
+class ChatRoomMember(models.Model):
+    chatroom = models.ForeignKey(
+        ChatRoom,
+        on_delete=models.PROTECT,
+        related_name="chatroom_member",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+    )
+    is_admin = models.BooleanField(default=False)
+
+    class Meta:
+        verbose_name = "Chatroom member"
+        verbose_name_plural = "Chatroom members"
+
+    def __str__(self):
+        return f"{self.chatroom} members"
