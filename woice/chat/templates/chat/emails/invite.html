@@ -1,0 +1,19 @@
+{% block subject %}New Chat Invite{% endblock %}
+
+{% block html %}
+    <br>
+    <p>Hello,</p>
+
+    <p>
+        @{{ creator }} just invited you to a private chat room.
+        Please use the link below to gain access:<br><br>
+
+        <a href="http://127.0.0.1:8000/chat/{{id}}"><b>http://27.0.0.1:8000/chat/{{id}}</b></a>
+    </p>
+
+    <br>
+    <p>
+        Best regards,<br>
+        Woice Team.
+    </p>
+{% endblock %}
