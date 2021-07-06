@@ -1,10 +1,13 @@
 from accounts.serializers import UserSerializer
 from django.db import IntegrityError
 from rest_framework.serializers import (
+    BooleanField,
     EmailField,
+    IntegerField,
     ListField,
     ModelSerializer,
     Serializer,
+    UUIDField,
     ValidationError,
 )
 
@@ -45,3 +48,9 @@ class ChatRoomCreateSerializer(ModelSerializer):
 
 class PrivateChatRoomInviteSerializer(Serializer):
     recipients = ListField(child=EmailField(), allow_empty=False)
+
+
+class MakeAdminSerializer(Serializer):
+    user_id = IntegerField()
+    chatroom_id = UUIDField()
+    make_admin = BooleanField(default=False)
