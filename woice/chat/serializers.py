@@ -47,6 +47,7 @@ class ChatRoomCreateSerializer(ModelSerializer):
 
 
 class PrivateChatRoomInviteSerializer(Serializer):
+    chatroom_id = UUIDField()
     recipients = ListField(child=EmailField(), allow_empty=False)
 
 
