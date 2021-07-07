@@ -6,7 +6,7 @@ from rest_framework.viewsets import ModelViewSet
 from templated_email import send_templated_mail
 
 from .models import ChatRoom, ChatRoomMember, RoomType
-from .permissions import ChatRoomPermission
+from .permissions import AdminPermission, ChatRoomPermission
 from .serializers import (
     ChatRoomCreateSerializer,
     ChatRoomSerializer,
@@ -23,7 +23,10 @@ class ChatRoomViewSet(ModelViewSet):
         "invite": PrivateChatRoomInviteSerializer,
         "make_admin": MakeAdminSerializer,
     }
-    permission_action_classes = {}
+    permission_action_classes = {
+        "invite": [AdminPermission],
+        "make_admin": [AdminPermission],
+    }
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -40,23 +43,28 @@ class ChatRoomViewSet(ModelViewSet):
             headers=headers,
         )
 
-    @action(detail=True, methods=["post"])
+    @action(detail=False, methods=["post"])
     def invite(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         recipients = serializer.validated_data.get("recipients")
+        chatroom_id = serializer.validated_data.get("chatroom_id")
         try:
-            chatroom = ChatRoom.objects.get(
-                pk=kwargs["pk"], creator=request.user, type=RoomType.PRIVATE
-            )
+            chatroom = ChatRoom.objects.get(pk=chatroom_id)
         except ObjectDoesNotExist:
+            return Response(
+                {"status": "error", "message": "Chatroom doesn't exist!"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if chatroom.type != RoomType.PRIVATE:
             return Response(
                 {
                     "status": "error",
-                    "message": "You need creator access to invite into this room!",
+                    "message": "Invites are for private rooms only!",
                 },
-                status=status.HTTP_404_NOT_FOUND,
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         _ = send_templated_mail(
@@ -86,38 +94,22 @@ class ChatRoomViewSet(ModelViewSet):
         make_admin = serializer.validated_data.get("make_admin")
         chatroom_id = serializer.validated_data.get("chatroom_id")
 
+        if request.user.id == user_id:
+            return Response(
+                {
+                    "status": "error",
+                    "message": "You can't grant or revoke your own admin rights!",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         try:
             chatroom = ChatRoom.objects.get(pk=chatroom_id)
         except ObjectDoesNotExist:
             return Response(
                 {"status": "error", "message": "Chatroom doesn't exist!"},
-                status=status.HTTP_404_BAD_REQUEST,
+                status=status.HTTP_404_NOT_FOUND,
             )
-
-        # Room creator is automatically an admin (see signals). Only run this
-        # check if authenticated user is not the room creator.
-        if request.user != chatroom.creator:
-            try:
-                other_admin = ChatRoomMember.objects.get(
-                    chatroom=chatroom, user=request.user
-                )
-            except ObjectDoesNotExist:
-                return Response(
-                    {
-                        "status": "error",
-                        "message": "You are not a member of this room!",
-                    },
-                    status=status.HTTP_404_NOT_FOUND,
-                )
-
-            if not other_admin.is_admin:
-                return Response(
-                    {
-                        "status": "error",
-                        "message": "You have to be admin to make other users admin!",
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
 
         try:
             member = ChatRoomMember.objects.get(
