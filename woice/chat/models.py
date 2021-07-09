@@ -2,6 +2,11 @@ import uuid
 
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
+
+
+def five_hours_hence():
+    return timezone.now() + timezone.timedelta(hours=5)
 
 
 class RoomType(models.TextChoices):
@@ -35,7 +40,7 @@ class ChatRoom(models.Model):
         verbose_name_plural = "Chatrooms"
 
     def __str__(self):
-        return f"{self.creator.username}'s {self.name} room"
+        return f"{self.name} by {self.creator.username}"
 
 
 class ChatRoomMember(models.Model):
@@ -56,3 +61,27 @@ class ChatRoomMember(models.Model):
 
     def __str__(self):
         return f"{self.chatroom} members"
+
+
+class InviteLink(models.Model):
+    chatroom = models.ForeignKey(
+        ChatRoom,
+        on_delete=models.CASCADE,
+        related_name="invite_link",
+        limit_choices_to={"type": RoomType.PRIVATE},
+    )
+    email = models.EmailField()
+    expires = models.DateTimeField(default=five_hours_hence)
+    has_expired = models.BooleanField(default=False)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["chatroom", "email"], name="unique_email_and_chatroom"
+            )
+        ]
+        verbose_name = "Invite"
+        verbose_name_plural = "Invites"
+
+    def __str__(self):
+        return f"{self.email}'s invite"
