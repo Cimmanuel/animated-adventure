@@ -25,9 +25,8 @@ class AdminPermission(BasePermission):
 
     def has_permission(self, request, view):
         if request.user.is_authenticated:
-            print(request.user.username)
             try:
-                chatroom = ChatRoom.objects.get(pk=request.data["chatroom_id"])
+                chatroom = ChatRoom.objects.get(pk=view.kwargs["pk"])
             except ObjectDoesNotExist:
                 return False
 
