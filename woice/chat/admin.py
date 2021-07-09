@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import ChatRoom, ChatRoomMember
+from .models import ChatRoom, ChatRoomMember, InviteLink
 
 
 @admin.register(ChatRoom)
@@ -13,3 +13,8 @@ class ChatRoomAdmin(admin.ModelAdmin):
 class ChatRoomMemberAdmin(admin.ModelAdmin):
     list_display = ["user", "chatroom", "is_admin"]
     list_filter = ["is_admin"]
+
+
+@admin.register(InviteLink)
+class InviteLinkAdmin(admin.ModelAdmin):
+    list_display = ["email", "chatroom", "expires", "has_expired"]
