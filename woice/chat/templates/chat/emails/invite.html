@@ -8,7 +8,9 @@
         @{{ creator }} just invited you to a private chat room.
         Please use the link below to gain access:<br><br>
 
-        <a href="http://127.0.0.1:8000/chat/{{id}}"><b>http://27.0.0.1:8000/chat/{{id}}</b></a>
+        <a href="{{scheme}}://{{host}}/chat/room/{{id}}/join/">
+            <b>{{scheme}}://{{host}}/chat/room/{{id}}/join/</b>
+        </a>
     </p>
 
     <br>
