@@ -1,10 +1,10 @@
 from django.core.exceptions import ObjectDoesNotExist
+from django.shortcuts import render
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
-
 
 from .models import ChatRoom, ChatRoomMember, InviteLink, RoomType
 from .permissions import AdminPermission, ChatRoomPermission
@@ -15,6 +15,10 @@ from .serializers import (
     PrivateChatRoomInviteSerializer,
 )
 from .signals import invites
+
+
+def room(request, pk):
+    return render(request, "chat/chatroom.html", {"pk": pk})
 
 
 class ChatRoomViewSet(ModelViewSet):
@@ -28,7 +32,6 @@ class ChatRoomViewSet(ModelViewSet):
     permission_action_classes = {
         "invite": [AdminPermission],
         "make_admin": [AdminPermission],
-        "join": [IsAuthenticated],
     }
 
     def create(self, request, *args, **kwargs):
@@ -45,54 +48,6 @@ class ChatRoomViewSet(ModelViewSet):
             status=status.HTTP_201_CREATED,
             headers=headers,
         )
-
-    @action(detail=True, methods=["post"])
-    def join(self, request, *args, **kwargs):
-        try:
-            chatroom = ChatRoom.objects.get(pk=kwargs["pk"])
-        except ObjectDoesNotExist:
-            return Response(
-                {"status": "error", "message": "Chatroom doesn't exist!"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        member = ChatRoomMember.objects.filter(
-            chatroom=chatroom, user=request.user
-        )
-        if member.exists():
-            return Response(
-                {"status": "success", "message": "You are already a member!"},
-                status=status.HTTP_200_OK,
-            )
-        else:
-            if chatroom.type == RoomType.PRIVATE:
-                invite_link = InviteLink.objects.filter(
-                    chatroom=chatroom, email=request.user.email
-                )
-                if invite_link.exists():
-                    invite_link = invite_link.first()
-                    invite_link.has_expired = True
-                    invite_link.save(update_fields=["has_expired"])
-                else:
-                    return Response(
-                        {
-                            "status": "error",
-                            "message": "Invalid invite link!",
-                        },
-                        status=status.HTTP_403_FORBIDDEN,
-                    )
-
-            _ = ChatRoomMember.objects.create(
-                chatroom=chatroom, user=request.user
-            )
-
-            return Response(
-                {
-                    "status": "success",
-                    "message": f"{request.user.username} joined successfully",
-                },
-                status=status.HTTP_200_OK,
-            )
 
     @action(detail=True, methods=["post"])
     def invite(self, request, *args, **kwargs):
