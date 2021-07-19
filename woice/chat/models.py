@@ -56,11 +56,38 @@ class ChatRoomMember(models.Model):
     is_admin = models.BooleanField(default=False)
 
     class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["chatroom", "user"], name="unique_user_and_chatroom"
+            )
+        ]
         verbose_name = "Chatroom member"
         verbose_name_plural = "Chatroom members"
 
     def __str__(self):
         return f"{self.chatroom} members"
+
+
+class ChatRoomMessage(models.Model):
+    chatroom = models.ForeignKey(
+        ChatRoom,
+        on_delete=models.PROTECT,
+        related_name="chatroom_message",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+    )
+    message = models.TextField()
+    created = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Chatroom message"
+        verbose_name_plural = "Chatroom messages"
+
+    def __str__(self):
+        return f"{self.chatroom} messages"
 
 
 class InviteLink(models.Model):
