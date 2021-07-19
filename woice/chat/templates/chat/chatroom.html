@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet">
+        <title>Chatroom!</title>
+    </head>
+    <body>
+        <div class="container">
+            <div class="row d-flex justify-content-center">
+                <div class="col-6">
+                    <form>
+                        <div class="form-group">
+                            <label for="formControlTextarea" class="h4 pt-5">Chatroom</label>
+                            <textarea class="form-control" id="chat-text" rows="10"></textarea><br>
+                        </div>
+                        <div class="form-group">
+                            <input class="form-control" id="input" type="text"><br>
+                        </div>
+                        <input class="btn btn-secondary btn-lg btn-block" id="submit" type="button" value="Send">
+                    </form>
+                </div>
+            </div>
+        </div>
+
+
+        {{ pk|json_script:"pk" }}
+        {{ request.user.username|json_script:"username" }}
+        <script>
+            document.querySelector("#submit").onclick = function(e) {
+                const messageInputDom = document.querySelector("#input")
+                const message = messageInputDom.value
+                console.log(message)
+                chatSocket.send(JSON.stringify({
+                    "message": message,
+                    "username": username,
+                }))
+                messageInputDom.value = ""
+            }
+
+            const pk = JSON.parse(document.getElementById("pk").textContent)
+            const username = JSON.parse(document.getElementById("username").textContent)
+            const chatSocket = new WebSocket(
+                "ws://" +
+                window.location.host +
+                "/ws/chat/" +
+                pk +
+                "/"
+            )
+
+            chatSocket.onmessage = function(e) {
+                const data = JSON.parse(e.data)
+                console.log(data)
+                if("username" in data) {
+                    document.querySelector("#chat-text").value += (data.username + "  " + data.message + "\n")
+                } else {
+                    document.querySelector("#chat-text").value += (data.message + "\n")
+                }
+            }
+        </script>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"></script>
+    </body>
+</html>
