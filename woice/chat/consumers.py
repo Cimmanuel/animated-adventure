@@ -27,29 +27,45 @@ class ChatRoomConsumer(AsyncWebsocketConsumer):
         if self.user.is_authenticated:
             await self.accept()
             try:
-                invite = await self.verify_invite(self.room_id, self.user)
-                await self.expire_invite(invite)
+                self.chatroom = await self.get_chatroom(self.room_id)
             except ObjectDoesNotExist:
                 await self.send(
-                    text_data=json.dumps(
-                        {"message": "Invite is either invalid or expired!"}
-                    )
+                    text_data=json.dumps({"message": "Chatroom doesn't exist!"})
                 )
-                await self.close(code=4001)
-            else:
-                try:
-                    await self.add_member(self.room_id, self.user)
-                    await self.channel_layer.group_send(
-                        self.room_group_name,
-                        {
-                            "type": "join",
-                            "message": f"{self.user.username} joined",
-                        },
+                await self.close()
+
+            if self.chatroom.type == RoomType.PRIVATE:
+                invite = await self.verify_invite(self.chatroom, self.user)
+                if invite:
+                    invite = await self.get_invite(self.chatroom, self.user)
+                    await self.expire_invite(invite)
+                else:
+                    membership = await self.verify_membership(
+                        self.chatroom, self.user
                     )
-                except IntegrityError:
-                    await self.send(
-                        text_data=json.dumps({"message": "Welcome back!"})
-                    )
+                    if not membership:
+                        await self.send(
+                            text_data=json.dumps(
+                                {
+                                    "message": "Invite is either invalid or expired!"
+                                }
+                            )
+                        )
+                        await self.close(code=4001)
+
+            try:
+                await self.add_member(self.chatroom, self.user)
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        "type": "join",
+                        "message": f"{self.user.username} joined",
+                    },
+                )
+            except IntegrityError:
+                await self.send(
+                    text_data=json.dumps({"message": "Welcome back!"})
+                )
         else:
             await self.accept()
             await self.send(
@@ -70,7 +86,7 @@ class ChatRoomConsumer(AsyncWebsocketConsumer):
         message = json_text_data["message"]
         username = json_text_data["username"]
 
-        await self.store_message(self.room_id, self.user, message)
+        await self.store_message(self.chatroom, self.user, message)
         await self.channel_layer.group_send(
             self.room_group_name,
             {
@@ -88,17 +104,28 @@ class ChatRoomConsumer(AsyncWebsocketConsumer):
         )
 
     @database_sync_to_async
-    def add_member(self, room_id, user):
-        chatroom = ChatRoom.objects.get(pk=room_id)
+    def get_chatroom(self, room_id):
+        return ChatRoom.objects.get(pk=room_id)
+
+    @database_sync_to_async
+    def add_member(self, chatroom, user):
         return ChatRoomMember.objects.create(chatroom=chatroom, user=user)
 
     @database_sync_to_async
-    def verify_invite(self, room_id, user):
-        chatroom = ChatRoom.objects.get(pk=room_id)
-        if chatroom.type == RoomType.PRIVATE:
-            return InviteLink.objects.get(
-                chatroom=chatroom, email=user.email, has_expired=False
-            )
+    def get_invite(self, chatroom, user):
+        return InviteLink.objects.get(chatroom=chatroom, email=user.email)
+
+    @database_sync_to_async
+    def verify_invite(self, chatroom, user):
+        return InviteLink.objects.filter(
+            chatroom=chatroom, email=user.email, has_expired=False
+        ).exists()
+
+    @database_sync_to_async
+    def verify_membership(self, chatroom, user):
+        return ChatRoomMember.objects.filter(
+            chatroom=chatroom, user=user
+        ).exists()
 
     @database_sync_to_async
     def expire_invite(self, invite):
@@ -107,8 +134,7 @@ class ChatRoomConsumer(AsyncWebsocketConsumer):
         return None
 
     @database_sync_to_async
-    def store_message(self, room_id, user, message):
-        chatroom = ChatRoom.objects.get(pk=room_id)
+    def store_message(self, chatroom, user, message):
         return ChatRoomMessage.objects.create(
             chatroom=chatroom, user=user, message=message
         )
