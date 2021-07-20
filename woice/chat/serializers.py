@@ -7,11 +7,10 @@ from rest_framework.serializers import (
     ListField,
     ModelSerializer,
     Serializer,
-    UUIDField,
     ValidationError,
 )
 
-from .models import ChatRoom
+from .models import ChatRoom, ChatRoomMember, ChatRoomMessage
 from .utils import strip_str
 
 
@@ -44,6 +43,22 @@ class ChatRoomCreateSerializer(ModelSerializer):
                     "message": strip_str(message, "normal"),
                 }
             )
+
+
+class ChatRoomMemberSerializer(ModelSerializer):
+    user = UserSerializer()
+
+    class Meta:
+        model = ChatRoomMember
+        fields = ["user"]
+
+
+class ChatRoomMessageSerializer(ModelSerializer):
+    user = UserSerializer()
+
+    class Meta:
+        model = ChatRoomMessage
+        exclude = ["chatroom"]
 
 
 class PrivateChatRoomInviteSerializer(Serializer):
