@@ -1,15 +1,25 @@
+from django.contrib.postgres.search import TrigramSimilarity
 from django.core.exceptions import ObjectDoesNotExist
 from django.shortcuts import render
 from rest_framework import status
 from rest_framework.decorators import action
+from rest_framework.generics import ListAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
-from .models import ChatRoom, ChatRoomMember, InviteLink, RoomType
+from .models import (
+    ChatRoom,
+    ChatRoomMember,
+    ChatRoomMessage,
+    InviteLink,
+    RoomType,
+)
 from .permissions import AdminPermission, ChatRoomPermission
 from .serializers import (
     ChatRoomCreateSerializer,
+    ChatRoomMemberSerializer,
+    ChatRoomMessageSerializer,
     ChatRoomSerializer,
     MakeAdminSerializer,
     PrivateChatRoomInviteSerializer,
@@ -200,3 +210,48 @@ class ChatRoomViewSet(ModelViewSet):
     def get_queryset(self):
         queryset = ChatRoom.objects.exclude(type=RoomType.PRIVATE)
         return queryset
+
+
+class MemberSearchView(ListAPIView):
+    serializer_class = ChatRoomMemberSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        q = self.request.query_params.get("q")
+
+        if q:
+            try:
+                chatroom = ChatRoom.objects.get(pk=self.kwargs["pk"])
+            except ObjectDoesNotExist:
+                return Response(
+                    {
+                        "status": "error",
+                        "message": "Chatroom doesn't exist",
+                    }
+                )
+
+            queryset = ChatRoomMember.objects.annotate(
+                similarity=TrigramSimilarity("user__username", q)
+            ).filter(chatroom=chatroom, similarity__gt=0.3)
+        else:
+            queryset = ChatRoomMember.objects.none()
+        return queryset
+
+
+class MessageListView(ListAPIView):
+    serializer_class = ChatRoomMessageSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        try:
+            chatroom = ChatRoom.objects.get(pk=self.kwargs["pk"])
+        except ObjectDoesNotExist:
+            return Response(
+                {
+                    "status": "error",
+                    "message": "Chatroom doesn't exist",
+                }
+            )
+
+        queryset = ChatRoomMessage.objects.filter(chatroom=chatroom)
+        return queryset.order_by("-created")
