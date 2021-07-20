@@ -83,25 +83,61 @@ class ChatRoomConsumer(AsyncWebsocketConsumer):
 
     async def receive(self, text_data):
         json_text_data = json.loads(text_data)
-        message = json_text_data["message"]
-        username = json_text_data["username"]
+        type = json_text_data.get("type")
+        message = json_text_data.get("message")
+        username = json_text_data.get("username")
 
-        await self.store_message(self.chatroom, self.user, message)
-        await self.channel_layer.group_send(
-            self.room_group_name,
-            {
-                "type": "chatroom_message",
-                "message": message,
-                "username": username,
-            },
-        )
+        if type == "MESSAGE":
+            await self.store_message(self.chatroom, self.user, message)
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    "type": "chatroom_message",
+                    "message": message,
+                    "username": username,
+                },
+            )
+        elif type == "TYPING":
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    "type": "typing",
+                    "message": message,
+                    "username": username,
+                },
+            )
+        elif type == "NOT_TYPING":
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    "type": "not_typing",
+                    "message": message,
+                    "username": username,
+                },
+            )
 
     async def chatroom_message(self, event):
         await self.send(
             text_data=json.dumps(
-                {"message": event["message"], "username": event["username"]}
+                {
+                    "type": "MESSAGE",
+                    "message": event["message"],
+                    "username": event["username"],
+                }
             )
         )
+
+    async def typing(self, event):
+        if self.user.username != event["username"]:
+            await self.send(
+                text_data=json.dumps(
+                    {"type": "TYPING", "message": event["message"]}
+                )
+            )
+
+    async def not_typing(self, event):
+        if self.user.username != event["username"]:
+            await self.send(text_data=json.dumps({"type": "NOT_TYPING"}))
 
     @database_sync_to_async
     def get_chatroom(self, room_id):
