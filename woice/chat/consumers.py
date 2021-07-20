@@ -47,7 +47,7 @@ class ChatRoomConsumer(AsyncWebsocketConsumer):
                         await self.send(
                             text_data=json.dumps(
                                 {
-                                    "message": "Invite is either invalid or expired!"
+                                    "message": "You need an invite to join this group!"
                                 }
                             )
                         )
