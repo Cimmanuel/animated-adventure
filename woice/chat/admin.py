@@ -22,4 +22,4 @@ class InviteLinkAdmin(admin.ModelAdmin):
 
 @admin.register(ChatRoomMessage)
 class ChatRoomMessageAdmin(admin.ModelAdmin):
-    list_display = ["user", "chatroom", "created", "updated"]
+    list_display = ["user", "chatroom", "created", "updated", "edited"]
