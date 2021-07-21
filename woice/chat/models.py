@@ -79,6 +79,7 @@ class ChatRoomMessage(models.Model):
         on_delete=models.PROTECT,
     )
     message = models.TextField()
+    edited = models.BooleanField(default=False)
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
 
