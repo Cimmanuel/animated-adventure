@@ -82,21 +82,62 @@ class ChatRoomConsumer(AsyncWebsocketConsumer):
         )
 
     async def receive(self, text_data):
-        json_text_data = json.loads(text_data)
-        type = json_text_data.get("type")
-        message = json_text_data.get("message")
-        username = json_text_data.get("username")
+        data = json.loads(text_data)
+        type = data.get("type")
+        message = data.get("message")
+        username = data.get("username")
+        message_id = data.get("message_id")
 
-        if type == "MESSAGE":
-            await self.store_message(self.chatroom, self.user, message)
+        if type == "NEW_MESSAGE":
+            new_message = await self.store_message(self.chatroom, self.user, message)
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
-                    "type": "chatroom_message",
+                    "type": "new_message",
                     "message": message,
                     "username": username,
+                    "message_id": new_message.id,
                 },
             )
+        elif type == "EDIT_MESSAGE":
+            if message_id:
+                try:
+                    edited = await self.get_message(message_id)
+                except ObjectDoesNotExist:
+                    await self.send(
+                        text_data=json.dumps({"message": "Message doesn't exist!"})
+                    )
+                    await self.close()
+
+                await self.replace_message(edited, message)
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        "type": "edit_message",
+                        "message": message,
+                        "username": username,
+                        "message_id": message_id,
+                    },
+                )
+        elif type == "DELETE_MESSAGE":
+            if message_id:
+                print("In DELETE_MESSAGE: ", message_id)
+                try:
+                    await self.delete_message(message_id)
+                except ObjectDoesNotExist:
+                    await self.send(
+                        text_data=json.dumps({"message": "Message doesn't exist!"})
+                    )
+                    await self.close()
+
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        "type": "delete_message",
+                        "message": "Message deleted",
+                        "username": username,
+                    },
+                )
         elif type == "TYPING":
             await self.channel_layer.group_send(
                 self.room_group_name,
@@ -116,11 +157,35 @@ class ChatRoomConsumer(AsyncWebsocketConsumer):
                 },
             )
 
-    async def chatroom_message(self, event):
+    async def new_message(self, event):
         await self.send(
             text_data=json.dumps(
                 {
-                    "type": "MESSAGE",
+                    "type": "NEW_MESSAGE",
+                    "message": event["message"],
+                    "username": event["username"],
+                    "message_id": event["message_id"],
+                }
+            )
+        )
+
+    async def edit_message(self, event):
+        await self.send(
+            text_data=json.dumps(
+                {
+                    "type": "EDIT_MESSAGE",
+                    "message": event["message"],
+                    "username": event["username"],
+                    "message_id": event["message_id"],
+                }
+            )
+        )
+
+    async def delete_message(self, event):
+        await self.send(
+            text_data=json.dumps(
+                {
+                    "type": "DELETE_MESSAGE",
                     "message": event["message"],
                     "username": event["username"],
                 }
@@ -174,3 +239,19 @@ class ChatRoomConsumer(AsyncWebsocketConsumer):
         return ChatRoomMessage.objects.create(
             chatroom=chatroom, user=user, message=message
         )
+
+    @database_sync_to_async
+    def get_message(self, message_id):
+        return ChatRoomMessage.objects.get(pk=message_id)
+
+    @database_sync_to_async
+    def replace_message(self, instance, message):
+        instance.message = message
+        instance.edited = True
+        instance.save(update_fields=["message", "edited"])
+        return None
+
+    @database_sync_to_async
+    def delete_message(self, message_id):
+        print("In delete message: ", message_id)
+        return ChatRoomMessage.objects.get(pk=message_id).delete()
