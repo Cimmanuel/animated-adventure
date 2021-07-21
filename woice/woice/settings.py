@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "django.contrib.postgres",
+    "drf_yasg",
     "rest_framework",
     "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
@@ -173,3 +174,15 @@ EMAIL_PORT = config("EMAIL_PORT")
 
 TEMPLATED_EMAIL_FILE_EXTENSION = "html"
 TEMPLATED_EMAIL_TEMPLATE_DIR = ""
+
+# Swagger
+SWAGGER_SETTINGS = {
+    "SECURITY_DEFINITIONS": {
+        "Bearer": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header",
+        },
+    },
+    "USE_SESSION_AUTH": False,
+}
