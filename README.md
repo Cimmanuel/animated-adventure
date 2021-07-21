@@ -37,3 +37,8 @@ http://127.0.0.1:8000/admin/
 ```
 http://127.0.0.1:8000/docs/
 ```
+- After registering, logging in, creating rooms and adding members, you can then visit the chat page. Make sure you replace <CHATROOM_ID> with an
+ID of a room you created or are a member of.
+```
+http://127.0.0.1:8000/chat/chatroom/<CHATROOM_ID>/
+```
